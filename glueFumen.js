@@ -1,5 +1,48 @@
+const yargs = require('yargs')(process.argv.slice(2));
+const fs = require('fs');
+const path = require('path');
 const {decoder, encoder, Field} = require('tetris-fumen');
 const Hashmap = require('hashmap');
+
+const argv = yargs
+  .option({
+    'so': {
+        alias: 'single-output',
+        default: false,
+        describe: 'Option to only add one glued fumen per fumen inputted. Useful for cover in sfinder.',
+        type: 'boolean',
+    },
+    'fu': {
+        alias: 'fumen',
+        default: '',
+        describe: 'The input to be glued. If multiple fumens are to be glued, then put them in a space-separated string.',
+        type: 'string',
+    },
+    'fp': {
+        alias: 'file-path',
+        default: '',
+        type: 'string',
+        describe: 'File path for the space-separated fumens. This overrides --fu.',
+    },
+  })
+  .check((argv, options) => {
+    const filePaths = argv
+    if ((filePaths.fu == '') && (filePaths.fp == '')) {
+      throw new Error("Neither fp nor fu was provided.");
+    } else {
+      return true; // tell Yargs that the arguments passed the check
+    }
+  })
+  .hide('version')
+  .help()
+  .alias('help', 'h').argv;
+
+if (argv.fp != "") {
+    const data = fs.readFileSync(argv.fp, "utf8");
+    splitdata = data.split('\r\n'); //suck it, unix users
+    // console.log(splitdata);
+    argv.fu = splitdata.join(" ");
+}
 
 const rowLen = 10;
 
@@ -167,13 +210,14 @@ function checkFieldEmpty(field){
 }
 
 var fumenCodes = [];
-for(let rawInput of process.argv.slice(2)){
-    fumenCodes.push(...rawInput.split(" "));
-}
+fumenCodes.push(...argv.fu.split(" "));
+    console.log(fumenCodes.length);
 var allPiecesArr = [];
 var allFumens = [];
 var fumenIssues = 0;
 for(let code of fumenCodes){
+    console.log("\"" + code + "\"")
+    if (code == "") continue;
     let inputPages = decoder.decode(code);
     for(let pageNum = 0; pageNum < inputPages.length; pageNum++){
         let field = inputPages[pageNum].field;
@@ -188,7 +232,9 @@ for(let code of fumenCodes){
             console.log(code + " couldn't be glued");
             fumenIssues++;
         }
-
+        
+        let convertedFumens = [];
+        
         for(let piecesArr of allPiecesArr){
             let pages = [];
             pages.push({
@@ -201,16 +247,24 @@ for(let code of fumenCodes){
                 })
             }
             let pieceFumen = encoder.encode(pages);
-            allFumens.push(pieceFumen);
+            convertedFumens.push(pieceFumen);
         }
 
         if(allPiecesArr.length > 1){
             // multiple outputs warning
-            console.log(code + " led to " + allPiecesArr.length + " outputs: " + allFumens.join(" "));
+            if (argv.so) {
+                console.log(code + " led to " + allPiecesArr.length + " outputs, inserting only 1: " + convertedFumens[0]);
+                convertedFumens = [convertedFumens[0]]
+            }
+            else {
+                console.log(code + " led to " + allPiecesArr.length + " outputs: " + convertedFumens.join(" ")); //only outputs ones converted from current fumen
+            }
         }
+        allFumens.push(...convertedFumens)
     }
+    console.log(allFumens.length)
 }
-if(fumenCodes.length > allFumens.length){
+if(fumenIssues != 0){
     console.log("Warning: " + fumenIssues + " fumens couldn't be glued");
 }
 
