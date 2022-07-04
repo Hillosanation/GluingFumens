@@ -1,4 +1,46 @@
+const yargs = require('yargs')(process.argv.slice(2));
 const { decoder, encoder} = require('tetris-fumen');
+const fs = require('fs');
+
+const argv = yargs
+  .option({
+    'fu': {
+        alias: 'fumen',
+        default: '',
+        describe: 'The input to be glued. If multiple fumens are to be glued, then put them in a space-separated string.',
+        type: 'string',
+    },
+    'fp': {
+        alias: 'file-path',
+        default: '',
+        type: 'string',
+        describe: 'File path for the whitespace-separated fumens. This overrides --fu.',
+    },
+    'op': {
+        alias: 'output-path',
+        default: '',
+        type: 'string',
+        describe: 'File path for the output file.'
+    },
+  })
+  .check((argv, options) => {
+    const filePaths = argv
+    if ((filePaths.fu == '') && (filePaths.fp == '')) {
+      throw new Error("Neither fp nor fu was provided.");
+    } else {
+      return true; // tell Yargs that the arguments passed the check
+    }
+  })
+  .hide('version')
+  .help()
+  .alias('help', 'h').argv;
+
+if (argv.fp != "") {
+    const data = fs.readFileSync(argv.fp, "utf8");
+    splitdata = data.split(/\s+/);
+    // console.log(splitdata);
+    argv.fu = splitdata.join(" ");
+}
 
 pieces = {
     T: [
@@ -70,11 +112,14 @@ function clearedOffset(rowsCleared, yIndex) {
 }
 
 var fumenCodes = []
-for(let rawInput of process.argv.slice(2)){
-    fumenCodes.push(...rawInput.split(" "));
-}
+fumenCodes.push(...argv.fu.split(" "));
 
+// console.log(fumenCodes);
+
+Output = []
 for (let code of fumenCodes) {
+    if (code == "") continue;
+    // console.log(code);
     let inputPages = decoder.decode(code);
     board = inputPages[0]["_field"]["field"]["pieces"]; 
     rowsCleared = [];
@@ -121,7 +166,18 @@ for (let code of fumenCodes) {
     let outputPages = [inputPages[0]]; // lazily generating output fumen by destructively modifying the input
     outputPages[0]["operation"] = undefined;
     outputPages[0]["_field"]["field"]["pieces"] = board;
+    
+    Output.push(encoder.encode(outputPages));
+}
 
-    console.log(encoder.encode(outputPages));
-
+if (argv.op != '') {
+    fs.writeFile(argv.op, Output.join("\n"), (err) => {
+    if (err)
+      console.log(err);
+    else {
+      console.log("File written successfully to " + argv.op + "\n");
+    }
+    });
+} else {
+    console.log(Output);
 }

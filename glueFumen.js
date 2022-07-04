@@ -12,6 +12,12 @@ const argv = yargs
         describe: 'Option to only add one glued fumen per fumen inputted. Useful for cover in sfinder.',
         type: 'boolean',
     },
+    's': {
+        alias: 'silence',
+        default: false,
+        describe: 'Does not report when multiple fumens were available.',
+        type: 'boolean',
+    },
     'fu': {
         alias: 'fumen',
         default: '',
@@ -22,7 +28,13 @@ const argv = yargs
         alias: 'file-path',
         default: '',
         type: 'string',
-        describe: 'File path for the space-separated fumens. This overrides --fu.',
+        describe: 'File path for the whitespace-separated fumens. This overrides --fu.',
+    },
+    'op': {
+        alias: 'output-path',
+        default: '',
+        type: 'string',
+        describe: 'File path for the output file.'
     },
   })
   .check((argv, options) => {
@@ -37,11 +49,13 @@ const argv = yargs
   .help()
   .alias('help', 'h').argv;
 
+var fumenCodes = [];
 if (argv.fp != "") {
     const data = fs.readFileSync(argv.fp, "utf8");
-    splitdata = data.split('\r\n'); //suck it, unix users
-    // console.log(splitdata);
-    argv.fu = splitdata.join(" ");
+    fumenCodes = data.split(/\s+/); 
+    // console.log(fumenCodes);
+} else {
+    fumenCodes = argv.fu.split(" ");
 }
 
 const rowLen = 10;
@@ -209,14 +223,12 @@ function checkFieldEmpty(field){
     return true;
 }
 
-var fumenCodes = [];
-fumenCodes.push(...argv.fu.split(" "));
-    console.log(fumenCodes.length);
+// console.log(fumenCodes.length);
 var allPiecesArr = [];
 var allFumens = [];
 var fumenIssues = 0;
 for(let code of fumenCodes){
-    console.log("\"" + code + "\"")
+    // console.log("\"" + code + "\"")
     if (code == "") continue;
     let inputPages = decoder.decode(code);
     for(let pageNum = 0; pageNum < inputPages.length; pageNum++){
@@ -253,19 +265,31 @@ for(let code of fumenCodes){
         if(allPiecesArr.length > 1){
             // multiple outputs warning
             if (argv.so) {
-                console.log(code + " led to " + allPiecesArr.length + " outputs, inserting only 1: " + convertedFumens[0]);
-                convertedFumens = [convertedFumens[0]]
+                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs, inserting only 1: " + convertedFumens[0]);
+                convertedFumens = [convertedFumens[0]];
             }
             else {
-                console.log(code + " led to " + allPiecesArr.length + " outputs: " + convertedFumens.join(" ")); //only outputs ones converted from current fumen
+                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs: " + convertedFumens.join(" ")); //only outputs ones converted from current fumen
             }
         }
         allFumens.push(...convertedFumens)
     }
-    console.log(allFumens.length)
+    // console.log(allFumens.length)
 }
 if(fumenIssues != 0){
     console.log("Warning: " + fumenIssues + " fumens couldn't be glued");
 }
 
-console.log(allFumens.join(" "));
+Output = allFumens.join("\n");
+
+if (argv.op != '') {
+    fs.writeFile(argv.op, Output, (err) => {
+    if (err)
+      console.log(err);
+    else {
+      console.log("File written successfully to " + argv.op + "\n");
+    }
+    });
+} else {
+    console.log(Output);
+}
