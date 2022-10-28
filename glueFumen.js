@@ -101,12 +101,13 @@ rotationDict.set(1, "left");
 rotationDict.set(2, "reverse");
 rotationDict.set(3, "right");
 
-function checkRotation(x, y, field, piecesArr){
+function checkRotation(x, y, field, piecesArr, depth){
     const piece = field.at(x, y);
 
     const rotationStates = pieceMappings.get(piece);
 
     let found = false;
+    let leftoverPieces = null;
 
     for(let state = 0; state < rotationStates.length; state++){
         let minoPositions = [];
@@ -133,6 +134,8 @@ function checkRotation(x, y, field, piecesArr){
         // if there's 4 minos
         if(minoPositions.length == 4){
             // a rotation is found
+            let foundBefore = found;
+
             found = true;
 
             // a rotation that works
@@ -151,42 +154,63 @@ function checkRotation(x, y, field, piecesArr){
                 // change the field to be the piece to be replaced by gray
                 newField.set(posX, posY, "X");
             }
+            let oldHeight = newField.str().split("\n").length - 1;
             newField = removeLineClears(newField);
 
             const height = newField.str().split("\n").length - 1;
 
+            // check if a line clear occurred
+            let startx = x;
+            let starty = y
+            if(oldHeight > height){
+                // start position to 0 otherwise it's where we left off scanning the field
+                startx = 0;
+                starty = height - 1
+            }
+
             let oldLen = allPiecesArr.length;
 
-            let possPiecesArr = scanField(0, height, newField, newPiecesArr)
+            let data = scanField(startx, starty, newField, newPiecesArr, depth + 1)
+            let possPiecesArr = data[0];
+            leftoverPieces = data[1];
+
+            if(leftoverPieces == null){
+                leftoverPieces = findRemainingPieces(newField)
+            }
             
             // if the field doesn't have any more pieces it's good
-            if(checkFieldEmpty(newField)){
+            if(possPiecesArr != null && leftoverPieces.length == 0){
                 allPiecesArr.push(possPiecesArr);
             } else if(oldLen == allPiecesArr.length){
                 // the piece didn't result into a correct glued fumen
-                found = false;
+                if(!leftoverPieces.includes(piece)){
+                    return [found, leftoverPieces]
+                } else {
+                    found = foundBefore
+                }
             }
         }
     }
-    return found
+    return [found, leftoverPieces]
 }
 
-function scanField(x, y, field, piecesArr){
+function scanField(x, y, field, piecesArr, depth){
     var newX = x;
     for(let newY = y; newY >= 0; newY--){
         for(; newX < rowLen; newX++){
             // if it is a piece
             if(field.at(newX, newY) != "X" && field.at(newX, newY) != "_"){
-                if(checkRotation(newX, newY, field, piecesArr)){
+                let [rotationWorked, leftover] = checkRotation(newX, newY, field, piecesArr, depth)
+                if(rotationWorked){
                     // a rotation works for the piece so just end the function as the scan finished
-                    return null;
+                    return [null, leftover];
                 }
                 // skips this one that meets no rotation as it might be a cut piece
             }
         }
         newX = 0
     }
-    return piecesArr;
+    return [piecesArr, null];
 }
 
 function makeEmptyField(field, height){
@@ -213,14 +237,21 @@ function removeLineClears(field){
     return newField;
 }
 
-function checkFieldEmpty(field){
+function findRemainingPieces(field){
     let lines = field.str().split("\n").slice(0, -1);
+    let piecesFound = [];
     for(let line of lines){
-        if(line.match(/.*[TILJSZO].*/)){
-            return false;
+        let pieces = line.match(/[TILJSZO]/g)
+        if(pieces != null){
+            for(let piece of pieces){
+                if(!piecesFound.includes(piece)){
+                    piecesFound.push(piece);
+                }
+            }
+            
         }
     }
-    return true;
+    return piecesFound;
 }
 
 // console.log(fumenCodes.length);
@@ -238,7 +269,7 @@ for(let code of fumenCodes){
         let emptyField = makeEmptyField(field, height);
         allPiecesArr = []
 
-        scanField(0, height - 1, field, []);
+        scanField(0, height - 1, field, [], 0);
         
         if(allPiecesArr.length == 0){
             console.log(code + " couldn't be glued");
@@ -269,7 +300,7 @@ for(let code of fumenCodes){
                 convertedFumens = [convertedFumens[0]];
             }
             else {
-                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs: " + convertedFumens.join(" ")); //only outputs ones converted from current fumen
+                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs: " + allFumens.slice(-allPiecesArr.length).join(" ")); //only outputs ones converted from current fumen
             }
         }
         allFumens.push(...convertedFumens)
