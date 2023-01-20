@@ -2,109 +2,56 @@ const yargs = require('yargs')(process.argv.slice(2));
 const fs = require('fs');
 const path = require('path');
 const {decoder, encoder, Field} = require('tetris-fumen');
-const Hashmap = require('hashmap');
-
-const argv = yargs
-  .option({
-    'so': {
-        alias: 'single-output',
-        default: false,
-        describe: 'Option to only add one glued fumen per fumen inputted. Useful for cover in sfinder.',
-        type: 'boolean',
-    },
-    's': {
-        alias: 'silence',
-        default: false,
-        describe: 'Does not report when multiple fumens were available.',
-        type: 'boolean',
-    },
-    'fu': {
-        alias: 'fumen',
-        default: '',
-        describe: 'The input to be glued. If multiple fumens are to be glued, then put them in a space-separated string.',
-        type: 'string',
-    },
-    'fp': {
-        alias: 'file-path',
-        default: '',
-        type: 'string',
-        describe: 'File path for the whitespace-separated fumens. This overrides --fu.',
-    },
-    'op': {
-        alias: 'output-path',
-        default: '',
-        type: 'string',
-        describe: 'File path for the output file.'
-    },
-  })
-  .check((argv, options) => {
-    const filePaths = argv
-    if ((filePaths.fu == '') && (filePaths.fp == '')) {
-      throw new Error("Neither fp nor fu was provided.");
-    } else {
-      return true; // tell Yargs that the arguments passed the check
-    }
-  })
-  .hide('version')
-  .help()
-  .alias('help', 'h').argv;
-
-var fumenCodes = [];
-if (argv.fp != "") {
-    const data = fs.readFileSync(argv.fp, "utf8");
-    fumenCodes = data.split(/\s+/); 
-    // console.log(fumenCodes);
-} else {
-    fumenCodes = argv.fu.split(" ");
-}
 
 const rowLen = 10;
 
-const pieceMappings = new Hashmap();
-pieceMappings.set("T", [
-    [[0, -1], [0, 0], [-1, -1], [1, -1]],
-    [[0, -1], [0, 0], [-1, -1], [0, -2]],
-    [[1, 0], [0, 0], [2, 0], [1, -1]],
-    [[0, -1], [0, 0], [1, -1], [0, -2]]
-    ])
-pieceMappings.set("I", [
-    [[1, 0], [0, 0], [2, 0], [3, 0]],
-    [[0, -2], [0, 0], [0, -1], [0, -3]]
-    ])
-pieceMappings.set("L", [
-    [[-1, -1], [0, 0], [-2, -1], [0, -1]],
-    [[1, -1], [0, 0], [1, 0], [1, -2]],
-    [[1, 0], [0, 0], [2, 0], [0, -1]],
-    [[0, -1], [0, 0], [0, -2], [1, -2]]
-    ])
-pieceMappings.set("J", [
-    [[1, -1], [0, 0], [0, -1], [2, -1]],
-    [[0, -1], [0, 0], [-1, -2], [0, -2]],
-    [[1, 0], [0, 0], [2, 0], [2, -1]],
-    [[0, -1], [0, 0], [1, 0], [0, -2]]
-    ])
-pieceMappings.set("S", [
-    [[0, -1], [0, 0], [1, 0], [-1, -1]],
-    [[1, -1], [0, 0], [0, -1], [1, -2]]
-    ])
-pieceMappings.set("Z", [
-    [[1, -1], [0, 0], [1, 0], [2, -1]],
-    [[0, -1], [0, 0], [-1, -1], [-1, -2]]
-    ])
-pieceMappings.set("O", [
-    [[0, -1], [0, 0], [1, 0], [1, -1]]
-    ])
+const pieceMappings = {
+    "T": [
+        [[0, -1], [0, 0], [-1, -1], [1, -1]],
+        [[0, -1], [0, 0], [-1, -1], [0, -2]],
+        [[1, 0], [0, 0], [2, 0], [1, -1]],
+        [[0, -1], [0, 0], [1, -1], [0, -2]]
+        ],
+    "I": [
+        [[1, 0], [0, 0], [2, 0], [3, 0]],
+        [[0, -2], [0, 0], [0, -1], [0, -3]]
+        ],
+    "L": [
+        [[-1, -1], [0, 0], [-2, -1], [0, -1]],
+        [[1, -1], [0, 0], [1, 0], [1, -2]],
+        [[1, 0], [0, 0], [2, 0], [0, -1]],
+        [[0, -1], [0, 0], [0, -2], [1, -2]]
+        ],
+    "J": [
+        [[1, -1], [0, 0], [0, -1], [2, -1]],
+        [[0, -1], [0, 0], [-1, -2], [0, -2]],
+        [[1, 0], [0, 0], [2, 0], [2, -1]],
+        [[0, -1], [0, 0], [1, 0], [0, -2]]
+        ],
+    "S": [
+        [[0, -1], [0, 0], [1, 0], [-1, -1]],
+        [[1, -1], [0, 0], [0, -1], [1, -2]]
+        ],
+    "Z": [
+        [[1, -1], [0, 0], [1, 0], [2, -1]],
+        [[0, -1], [0, 0], [-1, -1], [-1, -2]]
+        ],
+    "O": [
+        [[0, -1], [0, 0], [1, 0], [1, -1]]
+        ]
+}
 
-const rotationDict = new Hashmap();
-rotationDict.set(0, "spawn");
-rotationDict.set(1, "left");
-rotationDict.set(2, "reverse");
-rotationDict.set(3, "right");
+const rotationDict = {
+    0: "spawn",
+    1: "left",
+    2: "reverse",
+    3: "right"
+}
 
-function checkRotation(x, y, field, piecesArr, depth){
+function checkRotation(x, y, field, piecesArr, allPiecesArr, removeLineClearBool, depth=0){
     const piece = field.at(x, y);
 
-    const rotationStates = pieceMappings.get(piece);
+    const rotationStates = pieceMappings[piece];
 
     let found = false;
     let leftoverPieces = null;
@@ -141,7 +88,7 @@ function checkRotation(x, y, field, piecesArr, depth){
             // a rotation that works
             let operPiece = {
                 type: piece,
-                rotation: rotationDict.get(state),
+                rotation: rotationDict[state],
                 x: minoPositions[0][0],
                 y: minoPositions[0][1]
             }
@@ -155,7 +102,10 @@ function checkRotation(x, y, field, piecesArr, depth){
                 newField.set(posX, posY, "X");
             }
             let oldHeight = newField.str().split("\n").length - 1;
-            newField = removeLineClears(newField);
+            if(removeLineClearBool){
+                newField = removeLineClears(newField);
+            }
+            
 
             const height = newField.str().split("\n").length - 1;
 
@@ -170,7 +120,7 @@ function checkRotation(x, y, field, piecesArr, depth){
 
             let oldLen = allPiecesArr.length;
 
-            let data = scanField(startx, starty, newField, newPiecesArr, depth + 1)
+            let data = scanField(startx, starty, newField, newPiecesArr, allPiecesArr, removeLineClearBool, depth + 1)
             let possPiecesArr = data[0];
             leftoverPieces = data[1];
 
@@ -194,13 +144,13 @@ function checkRotation(x, y, field, piecesArr, depth){
     return [found, leftoverPieces]
 }
 
-function scanField(x, y, field, piecesArr, depth){
+function scanField(x, y, field, piecesArr, allPiecesArr, removeLineClearBool, depth=0){
     var newX = x;
     for(let newY = y; newY >= 0; newY--){
         for(; newX < rowLen; newX++){
             // if it is a piece
             if(field.at(newX, newY) != "X" && field.at(newX, newY) != "_"){
-                let [rotationWorked, leftover] = checkRotation(newX, newY, field, piecesArr, depth)
+                let [rotationWorked, leftover] = checkRotation(newX, newY, field, piecesArr, allPiecesArr, removeLineClearBool, depth)
                 if(rotationWorked){
                     // a rotation works for the piece so just end the function as the scan finished
                     return [null, leftover];
@@ -254,73 +204,125 @@ function findRemainingPieces(field){
     return piecesFound;
 }
 
-// console.log(fumenCodes.length);
-var allPiecesArr = [];
-var allFumens = [];
-var fumenIssues = 0;
-for(let code of fumenCodes){
-    // console.log("\"" + code + "\"")
-    if (code == "") continue;
-    let inputPages = decoder.decode(code);
-    for(let pageNum = 0; pageNum < inputPages.length; pageNum++){
-        let field = inputPages[pageNum].field;
-        field = removeLineClears(field);
-        const height = field.str().split("\n").length - 1;
-        let emptyField = makeEmptyField(field, height);
-        allPiecesArr = []
+function parseArgs(sliced_argv) {
+    return require('yargs')(sliced_argv)
+    .option({
+      'so': {
+          alias: 'single-output',
+          default: false,
+          describe: 'Option to only add one glued fumen per fumen inputted. Useful for cover in sfinder.',
+          type: 'boolean',
+      },
+      's': {
+          alias: 'silence',
+          default: false,
+          describe: 'Does not report when multiple fumens were available.',
+          type: 'boolean',
+      },
+      'fu': {
+          alias: 'fumen',
+          default: '',
+          describe: 'The input to be glued. If multiple fumens are to be glued, then put them in a space-separated string.',
+          type: 'string',
+      },
+      'fp': {
+          alias: 'file-path',
+          default: '',
+          type: 'string',
+          describe: 'File path for a utf8-encoded file containing whitespace-separated fumens. This overrides --fu.',
+      },
+      'op': {
+          alias: 'output-path',
+          default: '',
+          type: 'string',
+          describe: 'File path for the output file.'
+      },
+    })
+    .check((argv, options) => {
+      const filePaths = argv
+      if ((filePaths.fu == '') && (filePaths.fp == '')) {
+        throw new Error("Neither fp nor fu was provided.");
+      } else {
+        return true; // tell Yargs that the arguments passed the check
+      }
+    })
+    .hide('version') // i dont need version control
+    .help()
+    .alias('help', 'h').argv;
+}
 
-        scanField(0, height - 1, field, [], 0);
-        
-        if(allPiecesArr.length == 0){
-            console.log(code + " couldn't be glued");
-            fumenIssues++;
-        }
-        
-        let convertedFumens = [];
-        
-        for(let piecesArr of allPiecesArr){
-            let pages = [];
-            pages.push({
-                field: emptyField,
-                operation: piecesArr[0]
-            })
-            for(let i = 1; i < piecesArr.length; i++){
+function glueFumen(sliced_argv=process.argv.slice(2), removeLineClearBool=true){
+    var fumenCodes = [];
+
+    const argv = parseArgs(sliced_argv);
+
+    fumenData = (argv.fp != "" ? fs.readFileSync(argv.fp, "utf8") : argv.fu);
+    fumenCodes = fumenData.split(/\s+/);
+
+    var allPiecesArr = [];
+    var allFumens = [];
+    var fumenIssues = 0;
+    for(let code of fumenCodes){
+        let inputPages = decoder.decode(code);
+        let thisGlueFumens = []; // holds the glue fumens for this fumenCode
+        for(let pageNum = 0; pageNum < inputPages.length; pageNum++){
+            let field = inputPages[pageNum].field;
+            field = removeLineClears(field);
+            const height = field.str().split("\n").length - 1;
+            let emptyField = makeEmptyField(field, height);
+            allPiecesArr = []
+
+            scanField(0, height - 1, field, [], allPiecesArr, removeLineClearBool);
+            
+            if(allPiecesArr.length == 0){
+                console.log("Warning: " + code + " couldn't be glued");
+                fumenIssues++;
+            }
+            
+            for(let piecesArr of allPiecesArr){
+                let pages = [];
                 pages.push({
-                    operation: piecesArr[i]
+                    field: emptyField,
+                    operation: piecesArr[0]
                 })
+                for(let i = 1; i < piecesArr.length; i++){
+                    pages.push({
+                        operation: piecesArr[i]
+                    })
+                }
+                let pieceFumen = encoder.encode(pages);
+                thisGlueFumens.push(pieceFumen);
             }
-            let pieceFumen = encoder.encode(pages);
-            convertedFumens.push(pieceFumen);
-        }
 
-        if(allPiecesArr.length > 1){
-            // multiple outputs warning
-            if (argv.so) {
-                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs, inserting only 1: " + convertedFumens[0]);
-                convertedFumens = [convertedFumens[0]];
+            if(allPiecesArr.length > 1){
+                // multiple outputs warning
+                if (argv.so) {
+                    thisGlueFumens = [thisGlueFumens[0]];
+                }
+                if (!argv.s) allFumens.push("Warning: " + code + " led to " + allPiecesArr.length + " outputs" + (argv.so ? ", inserting only 1" : "") + ": " + thisGlueFumens.join(" "));
             }
-            else {
-                if (!argv.s) console.log(code + " led to " + allPiecesArr.length + " outputs: " + allFumens.slice(-allPiecesArr.length).join(" ")); //only outputs ones converted from current fumen
-            }
-        }
-        allFumens.push(...convertedFumens)
+
+        // add the glue fumens for this code to all the fumens
+        allFumens.push(...thisGlueFumens)
     }
-    // console.log(allFumens.length)
-}
-if(fumenIssues != 0){
-    console.log("Warning: " + fumenIssues + " fumens couldn't be glued");
-}
-
-Output = allFumens.join("\n");
-
-if (argv.op != '') {
-    fs.writeFile(argv.op, Output, (err) => {
-    if (err)
-      console.log(err);
-    else {
-      console.log("File written successfully to " + argv.op + "\n");
+    if(fumenIssues != 0){
+        console.log("Warning: " + fumenIssues + " fumens couldn't be glued");
     }
-    });
-} else {
-    console.log(Output);
+
+    return allFumens
 }
+
+exports.glueFumen = glueFumen;
+
+if(require.main == module){
+    allFumensString = glueFumen().join("\n");
+    if (argv.op != '') {
+        fs.writeFile(argv.op, Output, (err) => {
+            if (err) console.log(err);
+            else console.log("File written successfully to " + argv.op + "\n");
+        });
+    } else {
+        console.log(Output);
+    }
+}
+
