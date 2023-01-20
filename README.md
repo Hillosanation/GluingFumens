@@ -3,7 +3,7 @@ Turning single page fumens with color coded pieces into multipage fumens with a 
 
 Supports multipage fumens and multiple fumen inputs  
 Note: if there's multiple ways to cover the colored minos then all are outputed by default
- 
+
 # Command
 ```node glueFumen.js --fu fumenCode(s) [--so true]```  
 
