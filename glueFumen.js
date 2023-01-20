@@ -1,6 +1,4 @@
-const yargs = require('yargs')(process.argv.slice(2));
 const fs = require('fs');
-const path = require('path');
 const {decoder, encoder, Field} = require('tetris-fumen');
 
 const rowLen = 10;
@@ -204,7 +202,7 @@ function findRemainingPieces(field){
     return piecesFound;
 }
 
-function parseArgs(sliced_argv) {
+function parseArgs(sliced_argv){
     return require('yargs')(sliced_argv)
     .option({
       'so': {
@@ -251,13 +249,11 @@ function parseArgs(sliced_argv) {
     .alias('help', 'h').argv;
 }
 
-function glueFumen(sliced_argv=process.argv.slice(2), removeLineClearBool=true){
-    var fumenCodes = [];
-
+function glueFumen(sliced_argv=process.argv.slice(2),removeLineClearBool=true,exportResults=true){
     const argv = parseArgs(sliced_argv);
 
-    fumenData = (argv.fp != "" ? fs.readFileSync(argv.fp, "utf8") : argv.fu);
-    fumenCodes = fumenData.split(/\s+/);
+    let fumenData = (argv.fp != "" ? fs.readFileSync(argv.fp, "utf8") : argv.fu);
+    const fumenCodes = fumenData.split(/\s+/);
 
     var allPiecesArr = [];
     var allFumens = [];
@@ -302,27 +298,33 @@ function glueFumen(sliced_argv=process.argv.slice(2), removeLineClearBool=true){
                 if (!argv.s) allFumens.push("Warning: " + code + " led to " + allPiecesArr.length + " outputs" + (argv.so ? ", inserting only 1" : "") + ": " + thisGlueFumens.join(" "));
             }
 
-        // add the glue fumens for this code to all the fumens
-        allFumens.push(...thisGlueFumens)
+            // add the glue fumens for this code to all the fumens
+            allFumens.push(...thisGlueFumens)
+        }
     }
+
     if(fumenIssues != 0){
         console.log("Warning: " + fumenIssues + " fumens couldn't be glued");
     }
 
-    return allFumens
+    if (exportResults) return allFumens;
+
+    allFumensString = allFumens.join("\n");
+    if (argv.op == '') {
+        console.log(allFumensString);
+        return;
+    }
+    fs.writeFile(argv.op, allFumensString, (err) => {
+        if (err) console.log(err);
+        else console.log("File written successfully to " + argv.op + "\n");
+    });
+    return;
+
 }
 
 exports.glueFumen = glueFumen;
 
 if(require.main == module){
-    allFumensString = glueFumen().join("\n");
-    if (argv.op != '') {
-        fs.writeFile(argv.op, Output, (err) => {
-            if (err) console.log(err);
-            else console.log("File written successfully to " + argv.op + "\n");
-        });
-    } else {
-        console.log(Output);
-    }
+    glueFumen(process.argv.slice(2),true,false);
 }
 
