@@ -295,7 +295,7 @@ function glueFumen(sliced_argv=process.argv.slice(2),removeLineClearBool=true,ex
                 if (argv.so) {
                     thisGlueFumens = [thisGlueFumens[0]];
                 }
-                if (!argv.s) allFumens.push("Warning: " + code + " led to " + allPiecesArr.length + " outputs" + (argv.so ? ", inserting only 1" : "") + ": " + thisGlueFumens.join(" "));
+                if (!argv.s) console.log("Warning: " + code + " led to " + allPiecesArr.length + " outputs" + (argv.so ? ", inserting only 1" : "") + ": " + thisGlueFumens.join(" "));
             }
 
             // add the glue fumens for this code to all the fumens
